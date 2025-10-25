@@ -261,22 +261,17 @@ def generate_journals(persons_dataset: Dict, num_journals: int, output_dir: Path
         entry = generate_journal_entry(persons_list)
         timestamp = generate_timestamp()
 
-        # Create journal object
+        # Create journal ID
         journal_id = str(uuid.uuid4())
-        journal = {
-            "id": journal_id,
-            "timestamp": timestamp,
-            "entry": entry
-        }
 
-        # Save to file
-        output_path = output_dir / f"{journal_id}.json"
+        # Save to .txt file (just the entry text)
+        output_path = output_dir / f"{journal_id}.txt"
         with open(output_path, 'w') as f:
-            json.dump(journal, f, indent=2)
+            f.write(entry)
 
         # Convert timestamp to readable date for display
         readable_date = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{i+1}/{num_journals}] Generated: {journal_id}.json")
+        print(f"[{i+1}/{num_journals}] Generated: {journal_id}.txt")
         print(f"  Timestamp: {timestamp} ({readable_date})")
         print(f"  Entry: {entry[:80]}..." if len(entry) > 80 else f"  Entry: {entry}")
         print()

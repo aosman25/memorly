@@ -1,6 +1,8 @@
-# MongoDB Test Environment
+# Memorly Test Environment
 
-This directory contains scripts and configuration for setting up and populating a local MongoDB instance with mock data for testing.
+This directory contains scripts and configuration for testing the Memorly system:
+- **MongoDB setup and population** - Populate MongoDB with mock data
+- **Vector DB population** - Process images and populate Milvus vector database
 
 ## Structure
 
@@ -63,6 +65,156 @@ The script automatically verifies the collections and shows:
 - Document counts for each collection
 - Sample documents from each collection
 - Total processing summary
+
+---
+
+## Populate Vector Database (Milvus)
+
+Test the complete image processing pipeline by populating the Milvus vector database with images from the data folder.
+
+### Prerequisites
+
+- All Memorly services running (`docker-compose up -d` in root directory)
+- Gateway service healthy (check: `curl http://localhost:9000/health`)
+- Milvus vector database accessible
+- Python 3.9+
+- Required packages: `requests`
+
+### Quick Start
+
+```bash
+# Install dependencies
+pip install requests
+
+# Run the population script
+python populate_vector_db.py
+```
+
+### What It Does
+
+The `populate_vector_db.py` script:
+
+1. **Checks gateway health** - Ensures all services are running
+2. **Loads media metadata** - Reads `../data/media.json` for image metadata
+3. **Processes each image** through the complete pipeline:
+   - Uploads image to gateway service
+   - Gateway extracts features (objects, content, tags) via Gemini
+   - Gateway detects faces and creates/updates persons in MongoDB
+   - Gateway generates CLIP embeddings
+   - Gateway upserts to Milvus vector database
+4. **Tracks statistics** - Shows success/failure rates and processing time
+
+### Pipeline Flow for Each Image
+
+```
+Image File → Gateway Service
+    ↓
+Extract Features (Gemini)
+    ↓
+Extract Faces (ArcFace)
+    ↓
+Match/Create Persons (MongoDB)
+    ↓
+Generate Embedding (CLIP)
+    ↓
+Upsert to Vector DB (Milvus)
+    ↓
+Success!
+```
+
+### Example Output
+
+```
+============================================================
+VECTOR DATABASE POPULATION SCRIPT
+============================================================
+Gateway URL: http://localhost:9000
+User UUID:   mock-user
+Data Dir:    /home/user/memorly/data
+============================================================
+
+Checking gateway health...
+✓ Gateway is healthy
+  ✓ extract-features
+  ✓ face-extraction
+  ✓ embed
+  ✓ upsert
+  ✓ video-segmentation
+  ✓ mongodb
+
+✓ Loaded 111 media entries
+
+Found 111 images to process
+============================================================
+
+Process 111 images? [y/N]: y
+
+Starting processing...
+
+[1/111] e98093a9... (Chicago, IL)
+  📁 images/jacyQPkeiZU/e98093a9-cbd4-4e58-a011-2288d8f6f186.png
+  → Sending to gateway... ✓ (persons: +2/~0)
+
+[2/111] 79f7db91... (Chicago, IL)
+  📁 images/jacyQPkeiZU/79f7db91-8ca3-45ff-812e-0c4946c14ffe.png
+  → Sending to gateway... ✓ (persons: +0/~2)
+
+...
+
+============================================================
+PROCESSING STATISTICS
+============================================================
+Total images:           111
+Successfully processed: 110 (99.1%)
+Failed:                 1 (0.9%)
+Skipped:                0 (0.0%)
+Duration:               320.5 seconds
+Average:                2.89 seconds per image
+============================================================
+
+✓ All images processed successfully!
+```
+
+### Configuration
+
+Set the gateway URL if running on different host/port:
+
+```bash
+export GATEWAY_URL=http://localhost:9000
+python populate_vector_db.py
+```
+
+### Verify Results
+
+After population, check:
+
+1. **MongoDB persons collection:**
+```bash
+docker exec -it memorly-mongodb mongosh memorly --eval "db['mock-user.persons'].countDocuments()"
+```
+
+2. **Milvus collection:**
+Check via Milvus client or Attu UI
+
+3. **Gateway logs:**
+```bash
+docker-compose logs -f gateway-service
+```
+
+### Troubleshooting
+
+**Error: Gateway not accessible**
+- Ensure services are running: `docker-compose ps`
+- Check gateway health: `curl http://localhost:9000/health`
+
+**Error: Request timeout**
+- First few requests take longer (model downloads)
+- Subsequent requests should be faster
+- Increase timeout if processing large images
+
+**Error: Image file not found**
+- Verify images exist in `data/images/` directory
+- Check `media.json` has correct file paths
 
 ## Environment Variables
 

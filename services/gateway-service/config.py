@@ -32,6 +32,14 @@ class Config:
         "VIDEO_SEGMENTATION_SERVICE_URL",
         "http://localhost:8005"
     )
+    QUERY_PROCESSING_SERVICE_URL: str = os.getenv(
+        "QUERY_PROCESSING_SERVICE_URL",
+        "http://localhost:8006"
+    )
+    SEARCH_SERVICE_URL: str = os.getenv(
+        "SEARCH_SERVICE_URL",
+        "http://localhost:8007"
+    )
 
     # Face Similarity Threshold
     FACE_SIMILARITY_THRESHOLD: float = float(

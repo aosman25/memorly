@@ -11,7 +11,10 @@ from models import (
     ProcessMediaRequest,
     ProcessMediaResponse,
     HealthResponse,
-    MediaType
+    MediaType,
+    SearchRequest,
+    SearchResponse,
+    SearchResultItem
 )
 from service_clients import ServiceClients
 from mongodb_client import MongoDBClient
@@ -75,6 +78,8 @@ async def health_check():
         "embed": await service_clients.health_check(Config.EMBED_SERVICE_URL),
         "upsert": await service_clients.health_check(Config.UPSERT_SERVICE_URL),
         "video-segmentation": await service_clients.health_check(Config.VIDEO_SEGMENTATION_SERVICE_URL),
+        "query-processing": await service_clients.health_check(Config.QUERY_PROCESSING_SERVICE_URL),
+        "search": await service_clients.health_check(Config.SEARCH_SERVICE_URL),
         "mongodb": mongo_client is not None
     }
 
@@ -219,6 +224,81 @@ async def process_text(
     except Exception as e:
         logger.error(f"Error processing text: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error processing text: {str(e)}")
+
+
+@app.post("/search", response_model=SearchResponse)
+async def search(request: SearchRequest):
+    """
+    Search the vector database using natural language queries.
+
+    Pipeline:
+    1. Process query to extract structured information (query-processing-service)
+    2. Perform vector search with filters (search-service)
+    """
+    import time
+    import httpx
+
+    logger.info(f"Received search request: query='{request.query}', user_id={request.user_id}")
+    start_time = time.time()
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Step 1: Process the query
+            logger.debug("Step 1: Processing query with query-processing-service")
+            query_response = await client.post(
+                f"{Config.QUERY_PROCESSING_SERVICE_URL}/process-query",
+                json={
+                    "query": request.query,
+                    "user_id": request.user_id
+                }
+            )
+            query_response.raise_for_status()
+            query_data = query_response.json()
+            logger.debug(f"Query processing result: {query_data}")
+
+            # Step 2: Perform search
+            logger.debug("Step 2: Performing search with search-service")
+            search_response = await client.post(
+                f"{Config.SEARCH_SERVICE_URL}/search",
+                json={
+                    "query": request.query,
+                    "user_id": request.user_id,
+                    "limit": request.limit,
+                    "offset": request.offset
+                }
+            )
+            search_response.raise_for_status()
+            search_data = search_response.json()
+            logger.debug(f"Search completed: {search_data.get('total')} results")
+
+            # Calculate total processing time
+            processing_time_ms = (time.time() - start_time) * 1000
+
+            # Format response
+            return SearchResponse(
+                success=True,
+                results=[SearchResultItem(**item) for item in search_data["results"]],
+                total=search_data["total"],
+                query_info=search_data["query_info"],
+                processing_time_ms=processing_time_ms,
+                message=f"Found {search_data['total']} results"
+            )
+
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error during search: {e.response.status_code} - {e.response.text}")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Search service error: {e.response.text}"
+        )
+    except httpx.RequestError as e:
+        logger.error(f"Request error during search: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Service unavailable: {str(e)}"
+        )
+    except Exception as e:
+        logger.error(f"Error during search: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error during search: {str(e)}")
 
 
 @app.exception_handler(Exception)

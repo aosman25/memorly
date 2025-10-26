@@ -29,3 +29,27 @@ class ProcessMediaResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     services: dict
+
+
+class SearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, description="Search query text")
+    user_id: str = Field(..., description="User UUID")
+    limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results")
+    offset: int = Field(default=0, ge=0, description="Offset for pagination")
+
+
+class SearchResultItem(BaseModel):
+    id: str
+    score: float
+    media_type: str
+    source_path: Optional[str] = None
+    metadata: dict
+
+
+class SearchResponse(BaseModel):
+    success: bool
+    results: List[SearchResultItem]
+    total: int
+    query_info: dict
+    processing_time_ms: float
+    message: Optional[str] = None

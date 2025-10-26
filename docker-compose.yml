@@ -137,6 +137,30 @@ services:
     networks:
       - memorly-network
 
+  # Search Service
+  search-service:
+    build: ./services/search-service
+    container_name: search-service
+    ports:
+      - "8007:8000"
+    environment:
+      - MILVUS_HOST=${MILVUS_HOST}
+      - MILVUS_PORT=${MILVUS_PORT}
+      - MILVUS_TOKEN=${MILVUS_TOKEN}
+      - QUERY_PROCESSING_SERVICE_URL=http://query-processing-service:8000
+      - EMBED_SERVICE_URL=http://embed-service:8000
+      - PORT=8000
+    depends_on:
+      - query-processing-service
+      - embed-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - memorly-network
+
   # Gateway Service
   gateway-service:
     build: ./services/gateway-service
@@ -152,6 +176,7 @@ services:
       - UPSERT_SERVICE_URL=http://upsert-service:8000
       - VIDEO_SEGMENTATION_SERVICE_URL=http://video-segmentation-service:8000
       - QUERY_PROCESSING_SERVICE_URL=http://query-processing-service:8000
+      - SEARCH_SERVICE_URL=http://search-service:8000
       - FACE_SIMILARITY_THRESHOLD=${FACE_SIMILARITY_THRESHOLD}
       - VIDEO_VISUAL_WEIGHT=${VIDEO_VISUAL_WEIGHT}
       - VIDEO_TEXT_WEIGHT=${VIDEO_TEXT_WEIGHT}
@@ -165,6 +190,7 @@ services:
       - upsert-service
       - video-segmentation-service
       - query-processing-service
+      - search-service
     volumes:
       - gateway-uploads:/tmp/gateway-uploads
     healthcheck:

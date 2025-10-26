@@ -1,0 +1,23 @@
+Analyze this image and extract the following information in a structured format:
+
+1. **Objects**: List all significant objects, items, or entities visible in the image. Focus on concrete, identifiable things.
+
+2. **Content**: Provide a detailed, descriptive caption of the image that captures:
+   - What is happening in the scene
+   - Who is present (if applicable)
+   - The setting or environment
+   - The mood or atmosphere
+   - Any notable actions or interactions
+   Make the description vivid and informative, suitable for someone who cannot see the image.
+
+3. **Tags**: Generate relevant tags/categories for this image, including:
+   - Scene type (e.g., indoor, outdoor, urban, nature)
+   - Activities or events
+   - Themes or concepts
+   - Mood or style
+   - Time of day (if identifiable)
+   - Any other relevant categorizations
+
+Provide your response in JSON format with three fields: "objects" (list of strings), "content" (string), and "tags" (list of strings).
+
+Focus on accuracy and relevance. Be specific but concise.

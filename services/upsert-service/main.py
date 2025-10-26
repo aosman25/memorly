@@ -72,11 +72,11 @@ class MemoryData(BaseModel):
             "example": {
                 "id": "mem_20251024_174233",
                 "modality": "video",
-                "content": "Ali and Sarah discussing AI ethics at a café in Istanbul.",
+                "content": "Ali and Ahmed discussing AI ethics at a café in Istanbul.",
                 "embedding": [0.012, -0.045] + [0.0] * 510,
                 "timestamp": 1724174530,
                 "location": "Istanbul, Turkey",
-                "people": ["Ali", "Sarah"],
+                "people": ["Ali", "Ahmed"],
                 "objects": ["table", "coffee", "notebook"],
                 "tags": ["conversation", "AI", "cafe", "travel"],
                 "source_path": "/data/videos/2025-08-20_cafe.mp4",

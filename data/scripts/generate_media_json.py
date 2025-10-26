@@ -166,7 +166,7 @@ def collect_journals(journals_dir: Path) -> List[Dict]:
             'id': journal_id,
             'timestamp': timestamp,
             'fileFormat': 'txt',
-            'mediaType': 'journal',
+            'mediaType': 'note',
             'location': random.choice(LOCATIONS)
         })
 

@@ -1,0 +1,83 @@
+Analyze this search query and extract the following information in a structured format:
+
+1. **Objects**: List all objects, items, or entities that the user is searching for or expects to find in the results. This includes:
+   - Objects explicitly mentioned in the query (e.g., "laptop", "coffee cup")
+   - Objects that are likely to appear based on the context (e.g., "birthday party" might include: cake, balloons, presents, people)
+   - Objects associated with activities or events mentioned (e.g., "beach" might include: sand, ocean, swimsuit, umbrella)
+   - Objects commonly found in mentioned locations (e.g., "office" might include: desk, computer, chair)
+   Focus on concrete, identifiable things that would help filter and find relevant media.
+
+2. **Tags**: Generate relevant tags/categories that describe what the user is searching for, including:
+   - Scene types (e.g., indoor, outdoor, urban, nature)
+   - Activities or events (e.g., meeting, vacation, party, work)
+   - Themes or concepts (e.g., celebration, sadness, achievement)
+   - Time references (e.g., morning, evening, night, summer, winter)
+   - Any other relevant categorizations
+
+3. **Content**: Provide a cleaned, normalized version of the search query. Remove filler words and extract the core semantic meaning. Make it clear and concise.
+
+4. **People Names**: Extract any person names mentioned in the query. Include:
+   - First names (e.g., "John", "Sarah")
+   - Full names (e.g., "John Smith")
+   - Nicknames or informal names
+   - Relationship terms that might refer to named people (only if a name is mentioned)
+
+5. **Location Names**: Extract any location names mentioned in the query. Include:
+   - City names (e.g., "Paris", "New York")
+   - Country names (e.g., "France", "USA")
+   - Landmark names (e.g., "Eiffel Tower", "Central Park")
+   - Specific place names (e.g., "Starbucks on Main Street")
+   - General location descriptors (e.g., "beach", "mountains", "office", "home")
+
+6. **Modalities**: Determine which media types the user is searching for based on the context of the query. Return one or more of: "video", "image", "text"
+   - Use "video" if the user is looking for videos, clips, movies, recordings, or footage
+   - Use "image" if the user is looking for photos, pictures, images, or snapshots
+   - Use "text" if the user is looking for notes, documents, text files, or written content
+   - Can return multiple modalities if the query suggests multiple types (e.g., ["image", "video"])
+   - If the query doesn't specify any particular media type, return all three: ["video", "image", "text"]
+   - Consider the context: "memories from vacation" could include all types, while "watch the presentation" suggests video
+
+Provide your response in JSON format with six fields: "objects" (list of strings), "tags" (list of strings), "content" (string), "people_names" (list of strings), "location_names" (list of strings), and "modalities" (list of strings).
+
+Focus on accuracy and relevance. Be specific but concise. If no matches are found for a category, return an empty list.
+
+Examples:
+- Query: "Show me photos with John from our trip to Paris last summer"
+  - objects: ["Eiffel Tower", "landmarks", "buildings", "food", "cafes"]
+  - tags: ["vacation", "travel", "summer"]
+  - content: "photos with John from Paris trip summer"
+  - people_names: ["John"]
+  - location_names: ["Paris"]
+  - modalities: ["image"]
+
+- Query: "Find videos of my birthday party with Sarah and Mike"
+  - objects: ["cake", "balloons", "presents", "candles", "decorations"]
+  - tags: ["birthday", "party", "celebration"]
+  - content: "birthday party videos with Sarah and Mike"
+  - people_names: ["Sarah", "Mike"]
+  - location_names: []
+  - modalities: ["video"]
+
+- Query: "Pictures from the beach at sunset"
+  - objects: ["ocean", "waves", "sand", "sky", "sun", "clouds"]
+  - tags: ["beach", "sunset", "outdoor", "evening", "nature"]
+  - content: "beach pictures at sunset"
+  - people_names: []
+  - location_names: ["beach"]
+  - modalities: ["image"]
+
+- Query: "Show me everything from my New York trip"
+  - objects: ["buildings", "skyscrapers", "streets", "subway", "landmarks", "food"]
+  - tags: ["travel", "vacation", "urban"]
+  - content: "everything from New York trip"
+  - people_names: []
+  - location_names: ["New York"]
+  - modalities: ["video", "image", "text"]
+
+- Query: "Photos of me working at the office"
+  - objects: ["desk", "computer", "laptop", "chair", "papers", "monitor", "keyboard"]
+  - tags: ["work", "office", "indoor", "professional"]
+  - content: "photos working at office"
+  - people_names: []
+  - location_names: ["office"]
+  - modalities: ["image"]

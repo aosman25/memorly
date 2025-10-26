@@ -1,0 +1,152 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: memorly-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: memorly
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/memorly --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - memorly-network
+
+  # Extract Features Service
+  extract-features-service:
+    build: ./services/extract-features-service
+    container_name: extract-features-service
+    ports:
+      - "8001:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - memorly-network
+
+  # Face Extraction Service
+  face-extraction-service:
+    build: ./services/face-extraction-service
+    container_name: face-extraction-service
+    ports:
+      - "8002:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - memorly-network
+
+  # Embed Service
+  embed-service:
+    build: ./services/embed-service
+    container_name: embed-service
+    ports:
+      - "8003:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - memorly-network
+
+  # Upsert Service
+  upsert-service:
+    build: ./services/upsert-service
+    container_name: upsert-service
+    ports:
+      - "8004:8000"
+    environment:
+      - MILVUS_HOST=${MILVUS_HOST}
+      - MILVUS_PORT=${MILVUS_PORT}
+    depends_on:
+      - mongodb
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - memorly-network
+
+  # Video Segmentation Service
+  video-segmentation-service:
+    build: ./services/video-segmentation-service
+    container_name: video-segmentation-service
+    ports:
+      - "8005:8000"
+    environment:
+      - DEEPINFRA_API_KEY=${DEEPINFRA_API_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - memorly-network
+
+  # Gateway Service
+  gateway-service:
+    build: ./services/gateway-service
+    container_name: gateway-service
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - MONGO_DB_NAME=${MONGO_DB_NAME}
+      - EXTRACT_FEATURES_SERVICE_URL=http://extract-features-service:8000
+      - FACE_EXTRACTION_SERVICE_URL=http://face-extraction-service:8000
+      - EMBED_SERVICE_URL=http://embed-service:8000
+      - UPSERT_SERVICE_URL=http://upsert-service:8000
+      - VIDEO_SEGMENTATION_SERVICE_URL=http://video-segmentation-service:8000
+      - FACE_SIMILARITY_THRESHOLD=${FACE_SIMILARITY_THRESHOLD}
+      - VIDEO_VISUAL_WEIGHT=${VIDEO_VISUAL_WEIGHT}
+      - VIDEO_TEXT_WEIGHT=${VIDEO_TEXT_WEIGHT}
+      - MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE}
+      - LOG_LEVEL=${LOG_LEVEL}
+    depends_on:
+      - mongodb
+      - extract-features-service
+      - face-extraction-service
+      - embed-service
+      - upsert-service
+      - video-segmentation-service
+    volumes:
+      - gateway-uploads:/tmp/gateway-uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - memorly-network
+
+networks:
+  memorly-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+  gateway-uploads:
+    driver: local

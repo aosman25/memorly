@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import time
+import uuid
 from contextlib import asynccontextmanager
 
 import structlog
@@ -17,8 +18,10 @@ from utils import (
     process_image_for_faces,
     deduplicate_faces,
     face_image_to_base64,
+    face_image_to_png_bytes,
     check_deepface_models,
 )
+from b2_storage import get_b2_client
 from models import (
     Face,
     ImageInput,
@@ -78,16 +81,27 @@ def setup_logging():
 
 # Global variables
 logger = structlog.get_logger()
+b2_client = None  # Will be initialized on startup
 
 
 # Application lifecycle
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
+    global b2_client
+
     # Startup
     try:
         logger.info("Starting Face Extraction Service")
         Config.validate()
+
+        # Initialize B2 storage client
+        b2_client = get_b2_client()
+        if b2_client:
+            logger.info("B2 storage client initialized - headshot upload enabled")
+        else:
+            logger.warning("B2 storage client not initialized - headshot upload disabled")
+
         logger.info(
             "Service started successfully",
             model=Config.FACE_MODEL,
@@ -267,16 +281,50 @@ async def process_extraction_request(
         # Convert to response format
         faces = []
         for face_image, embedding, confidence, facial_area in unique_faces_data:
+            # Generate unique person ID for this face
+            person_id = str(uuid.uuid4())
+
             # Convert face image to base64
             face_image_base64 = await asyncio.to_thread(
                 face_image_to_base64, face_image
             )
 
+            # Upload headshot to B2 if configured
+            headshot_url = None
+            if b2_client:
+                try:
+                    # Convert face image to PNG bytes
+                    png_bytes = await asyncio.to_thread(
+                        face_image_to_png_bytes, face_image
+                    )
+
+                    # Upload to B2
+                    headshot_url = await asyncio.to_thread(
+                        b2_client.upload_headshot,
+                        png_bytes,
+                        person_id,
+                        "system"  # Default user_id for organizing
+                    )
+
+                    logger.info(
+                        "Headshot uploaded to B2",
+                        person_id=person_id,
+                        url=headshot_url
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Failed to upload headshot to B2",
+                        person_id=person_id,
+                        error=str(e)
+                    )
+                    # Continue without headshot URL if upload fails
+
             faces.append(Face(
                 face_image=face_image_base64,
                 embedding=embedding.tolist(),
                 confidence=confidence,
-                facial_area=facial_area
+                facial_area=facial_area,
+                headshot_url=headshot_url
             ))
 
         processing_time_ms = (time.time() - start_time) * 1000

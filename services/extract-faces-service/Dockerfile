@@ -33,6 +33,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY main.py .
 COPY models.py .
 COPY utils.py .
+COPY b2_storage.py .
 
 # Create directory for model weights
 RUN mkdir -p /root/.deepface/weights

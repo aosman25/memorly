@@ -8,6 +8,7 @@ class Face(BaseModel):
     embedding: List[float] = Field(..., description="Face embedding vector")
     confidence: float = Field(..., description="Detection confidence score")
     facial_area: dict = Field(..., description="Bounding box coordinates")
+    headshot_url: Optional[str] = Field(None, description="URL of headshot stored in B2")
 
 
 class ImageInput(BaseModel):

@@ -296,6 +296,37 @@ def face_image_to_base64(face_image: np.ndarray) -> str:
         raise RuntimeError(f"Failed to encode face image to base64: {str(e)}")
 
 
+def face_image_to_png_bytes(face_image: np.ndarray) -> bytes:
+    """
+    Convert face image to PNG bytes for upload to B2.
+
+    Args:
+        face_image: Face image as numpy array (BGR format)
+
+    Returns:
+        PNG image data as bytes
+    """
+    try:
+        # Convert BGR to RGB
+        face_rgb = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+
+        # Convert to PIL Image
+        pil_image = Image.fromarray(face_rgb)
+
+        # Resize to standard size (for consistency)
+        pil_image = pil_image.resize((160, 160), Image.Resampling.LANCZOS)
+
+        # Save to bytes as PNG
+        buffer = io.BytesIO()
+        pil_image.save(buffer, format='PNG')
+        png_bytes = buffer.getvalue()
+
+        return png_bytes
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to convert face image to PNG bytes: {str(e)}")
+
+
 def process_image_for_faces(
     image: np.ndarray,
     min_face_size: int = 20,

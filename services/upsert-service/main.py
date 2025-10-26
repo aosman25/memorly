@@ -32,7 +32,9 @@ client = None
 async def startup_event():
     """Initialize Milvus client on startup."""
     global client
-    milvus_uri = os.getenv("MILVUS_IP", "localhost:19530")
+    milvus_host = os.getenv("MILVUS_HOST", "localhost")
+    milvus_port = os.getenv("MILVUS_PORT", "19530")
+    milvus_uri = f"{milvus_host}:{milvus_port}"
     milvus_token = os.getenv("MILVUS_TOKEN", "root:Milvus")
 
     logger.info(f"Connecting to Milvus at {milvus_uri}...")

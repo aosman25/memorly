@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # MongoDB Database
   mongodb:
@@ -29,6 +27,7 @@ services:
       - "8001:8000"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PORT=8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -39,7 +38,7 @@ services:
 
   # Face Extraction Service
   face-extraction-service:
-    build: ./services/face-extraction-service
+    build: ./services/extract-faces-service
     container_name: face-extraction-service
     ports:
       - "8002:8000"
@@ -58,8 +57,10 @@ services:
     ports:
       - "8003:8000"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEEPINFRA_API_KEY=${DEEPINFRA_API_KEY}
+      - OPENAI_API_KEY=${DEEPINFRA_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - PORT=8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -89,12 +90,17 @@ services:
 
   # Video Segmentation Service
   video-segmentation-service:
-    build: ./services/video-segmentation-service
+    build: ./services/segment-video-service
     container_name: video-segmentation-service
     ports:
       - "8005:8000"
     environment:
+      - WHISPER_API_KEY=${DEEPINFRA_API_KEY}
+      - WHISPER_BASE_URL=${OPENAI_BASE_URL}
       - DEEPINFRA_API_KEY=${DEEPINFRA_API_KEY}
+      - OPENAI_API_KEY=${DEEPINFRA_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      - PORT=8000
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -108,7 +114,7 @@ services:
     build: ./services/gateway-service
     container_name: gateway-service
     ports:
-      - "8000:8000"
+      - "9000:8000"
     environment:
       - MONGO_URI=${MONGO_URI}
       - MONGO_DB_NAME=${MONGO_DB_NAME}

@@ -23,7 +23,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY memory_server.py .
+COPY main.py .
+COPY upsert_memories.py .
 COPY utils.py .
 COPY memory_schema_fields.json .
 COPY memory_index_params.json .
@@ -43,4 +44,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
 
 # Run the application
-CMD ["uvicorn", "memory_server:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

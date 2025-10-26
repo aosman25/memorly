@@ -212,14 +212,21 @@ class MediaPipeline:
                     "embedding_dimension": None
                 }
 
-            # Step 2: Extract features from first scene (representative)
-            # Assuming the first scene has a representative frame
+            # Step 2: Extract features and content from scenes
+            # Combine transcripts from all scenes to create content
+            transcripts = []
+            for scene in scenes:
+                transcript = scene.get("transcript", "")
+                if transcript:
+                    transcripts.append(transcript)
+
+            # Join all transcripts as the video content
+            content = " ".join(transcripts) if transcripts else ""
+
+            # Extract features from first scene frame for objects and tags
             first_scene = scenes[0]
-            # The scene should have frame info - we'll use the video path for now
-            # In production, you might save the frame temporarily
             features = await self.service_clients.extract_features(media_path)
             objects = features.get("objects", [])
-            content = features.get("content", "")
             tags = features.get("tags", [])
 
             # Step 3: Process faces from video

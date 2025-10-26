@@ -309,8 +309,7 @@ async def health_check():
     """Health check endpoint"""
     return HealthResponse(
         status="healthy",
-        timestamp=time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
-        face_detection_model=f"{Config.FACE_MODEL} + {Config.DETECTOR_BACKEND}"
+        deepface_loaded=True
     )
 
 

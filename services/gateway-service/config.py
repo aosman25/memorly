@@ -40,6 +40,10 @@ class Config:
         "SEARCH_SERVICE_URL",
         "http://localhost:8007"
     )
+    LLM_RESPONSE_SERVICE_URL: str = os.getenv(
+        "LLM_RESPONSE_SERVICE_URL",
+        "http://localhost:8008"
+    )
 
     # Face Similarity Threshold
     FACE_SIMILARITY_THRESHOLD: float = float(

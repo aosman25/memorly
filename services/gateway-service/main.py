@@ -3,7 +3,7 @@ import os
 import shutil
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import uvicorn
 
 from config import Config
@@ -14,7 +14,8 @@ from models import (
     MediaType,
     SearchRequest,
     SearchResponse,
-    SearchResultItem
+    SearchResultItem,
+    GenerateRequest
 )
 from service_clients import ServiceClients
 from mongodb_client import MongoDBClient
@@ -80,6 +81,7 @@ async def health_check():
         "video-segmentation": await service_clients.health_check(Config.VIDEO_SEGMENTATION_SERVICE_URL),
         "query-processing": await service_clients.health_check(Config.QUERY_PROCESSING_SERVICE_URL),
         "search": await service_clients.health_check(Config.SEARCH_SERVICE_URL),
+        "llm-response": await service_clients.health_check(Config.LLM_RESPONSE_SERVICE_URL),
         "mongodb": mongo_client is not None
     }
 
@@ -299,6 +301,69 @@ async def search(request: SearchRequest):
     except Exception as e:
         logger.error(f"Error during search: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error during search: {str(e)}")
+
+
+@app.post("/generate")
+async def generate(request: GenerateRequest):
+    """
+    Generate conversational response using LLM based on retrieved memories.
+
+    This endpoint streams the response in Server-Sent Events (SSE) format:
+    1. First chunk: metadata with retrieved sources
+    2. Subsequent chunks: LLM-generated response text
+    3. Final chunk: completion marker with processing time
+
+    Pipeline:
+    1. Retrieve relevant memories (via search-service)
+    2. Generate conversational response (via llm-response-service)
+    3. Stream response to client
+    """
+    import httpx
+
+    logger.info(f"Received generate request: query='{request.query}', user_id={request.user_id}")
+
+    async def stream_llm_response():
+        """Stream LLM response from the LLM service"""
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                async with client.stream(
+                    "POST",
+                    f"{Config.LLM_RESPONSE_SERVICE_URL}/generate",
+                    json={
+                        "query": request.query,
+                        "user_id": request.user_id,
+                        "limit": request.limit
+                    }
+                ) as response:
+                    response.raise_for_status()
+
+                    # Stream response chunks to client
+                    async for line in response.aiter_lines():
+                        if line:
+                            yield f"{line}\n"
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error from LLM service: {e.response.status_code}")
+            error_chunk = f'data: {{"type": "error", "data": "LLM service error: {e.response.status_code}"}}\n\n'
+            yield error_chunk
+        except httpx.RequestError as e:
+            logger.error(f"Request error to LLM service: {e}")
+            error_chunk = f'data: {{"type": "error", "data": "LLM service unavailable"}}\n\n'
+            yield error_chunk
+        except Exception as e:
+            logger.error(f"Error during generation: {e}", exc_info=True)
+            error_chunk = f'data: {{"type": "error", "data": "Internal error during generation"}}\n\n'
+            yield error_chunk
+
+    return StreamingResponse(
+        stream_llm_response(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable buffering in nginx
+        }
+    )
 
 
 @app.exception_handler(Exception)

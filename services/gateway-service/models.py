@@ -53,3 +53,9 @@ class SearchResponse(BaseModel):
     query_info: dict
     processing_time_ms: float
     message: Optional[str] = None
+
+
+class GenerateRequest(BaseModel):
+    query: str = Field(..., min_length=1, description="Query to generate response for")
+    user_id: str = Field(..., description="User UUID")
+    limit: int = Field(default=10, ge=1, le=100, description="Maximum number of sources to retrieve")

@@ -161,6 +161,27 @@ services:
     networks:
       - memorly-network
 
+  # LLM Response Generation Service
+  llm-response-service:
+    build: ./services/llm-response-service
+    container_name: llm-response-service
+    ports:
+      - "8008:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL}
+      - SEARCH_SERVICE_URL=http://search-service:8000
+      - PORT=8000
+    depends_on:
+      - search-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - memorly-network
+
   # Gateway Service
   gateway-service:
     build: ./services/gateway-service
@@ -177,6 +198,7 @@ services:
       - VIDEO_SEGMENTATION_SERVICE_URL=http://video-segmentation-service:8000
       - QUERY_PROCESSING_SERVICE_URL=http://query-processing-service:8000
       - SEARCH_SERVICE_URL=http://search-service:8000
+      - LLM_RESPONSE_SERVICE_URL=http://llm-response-service:8000
       - FACE_SIMILARITY_THRESHOLD=${FACE_SIMILARITY_THRESHOLD}
       - VIDEO_VISUAL_WEIGHT=${VIDEO_VISUAL_WEIGHT}
       - VIDEO_TEXT_WEIGHT=${VIDEO_TEXT_WEIGHT}
@@ -191,6 +213,7 @@ services:
       - video-segmentation-service
       - query-processing-service
       - search-service
+      - llm-response-service
     volumes:
       - gateway-uploads:/tmp/gateway-uploads
     healthcheck:

@@ -143,6 +143,7 @@ class MediaPipeline:
                 embedding=embedding,
                 timestamp=timestamp,
                 modality="image",
+                source_path=media_id,  # For images, source_path equals media_id
                 objects=objects,
                 content=content,
                 tags=tags,
@@ -255,6 +256,7 @@ class MediaPipeline:
                 embedding=embedding,
                 timestamp=timestamp,
                 modality="video",
+                source_path=media_id,  # For videos, source_path equals media_id (original video ID)
                 objects=objects,
                 content=content,
                 tags=tags,
@@ -325,6 +327,7 @@ class MediaPipeline:
                 embedding=embedding,
                 timestamp=timestamp,
                 modality="text",
+                source_path=media_id,  # For text, source_path equals media_id
                 objects=[],
                 content=text_content,
                 tags=[],

@@ -65,6 +65,7 @@ class MemoryData(BaseModel):
     people: List[str] = Field(default_factory=list)
     objects: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
+    source_path: str = Field(..., description="Source media ID (same as id for images, original video ID for segments)")
     start_timestamp_video: Optional[float] = Field(None, description="Start timestamp in seconds (video only)")
     end_timestamp_video: Optional[float] = Field(None, description="End timestamp in seconds (video only)")
 
@@ -80,6 +81,7 @@ class MemoryData(BaseModel):
                 "people": ["Ali", "Ahmed"],
                 "objects": ["table", "coffee", "notebook"],
                 "tags": ["conversation", "AI", "cafe", "travel"],
+                "source_path": "video_20251024_174233",
                 "start_timestamp_video": 0.0,
                 "end_timestamp_video": 5.2
             }

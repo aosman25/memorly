@@ -16,6 +16,10 @@
     "index_type": "INVERTED"
   },
   {
+    "field_name": "source_path",
+    "index_type": "INVERTED"
+  },
+  {
     "field_name": "content",
     "index_type": "Trie"
   },

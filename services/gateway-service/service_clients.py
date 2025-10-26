@@ -214,6 +214,7 @@ class ServiceClients:
         embedding: List[float],
         timestamp: int,
         modality: str = "image",
+        source_path: Optional[str] = None,
         objects: Optional[List[str]] = None,
         content: Optional[str] = None,
         tags: Optional[List[str]] = None,
@@ -231,6 +232,7 @@ class ServiceClients:
             embedding: Embedding vector
             timestamp: Unix timestamp
             modality: Type of media (image/video/text)
+            source_path: Source media ID (same as media_id for images, original video_id for segments)
             objects: List of objects in the media
             content: Descriptive content
             tags: List of tags
@@ -253,7 +255,8 @@ class ServiceClients:
             "location": location or "",
             "people": people or [],
             "objects": objects or [],
-            "tags": tags or []
+            "tags": tags or [],
+            "source_path": source_path or media_id  # Default to media_id if not provided
         }
 
         # Add video timestamps if provided

@@ -17,6 +17,13 @@ import subprocess
 import random
 from datetime import datetime, timedelta
 
+# List of US cities for location assignment
+LOCATIONS = [
+    "New York, NY",
+    "Los Angeles, CA",
+    "Chicago, IL"
+]
+
 
 def get_file_timestamp(file_path: Path) -> int:
     """Get the creation/modification timestamp of a file."""
@@ -88,7 +95,8 @@ def collect_images(images_dir: Path) -> List[Dict]:
                 'id': image_id,
                 'timestamp': timestamp,
                 'fileFormat': 'png',
-                'mediaType': 'image'
+                'mediaType': 'image',
+                'location': random.choice(LOCATIONS)
             })
 
     return images
@@ -130,7 +138,8 @@ def collect_videos(videos_dir: Path) -> List[Dict]:
                 'id': video_id,
                 'timestamp': timestamp,
                 'fileFormat': 'mp4',
-                'mediaType': 'video'
+                'mediaType': 'video',
+                'location': random.choice(LOCATIONS)
             })
 
     return videos
@@ -157,7 +166,8 @@ def collect_journals(journals_dir: Path) -> List[Dict]:
             'id': journal_id,
             'timestamp': timestamp,
             'fileFormat': 'txt',
-            'mediaType': 'journal'
+            'mediaType': 'journal',
+            'location': random.choice(LOCATIONS)
         })
 
     return journals

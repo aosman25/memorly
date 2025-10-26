@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-Script to populate Milvus vector database with mock image data.
+Script to populate Milvus vector database with mock media data.
 
 This script:
 1. Reads media.json for metadata
-2. Finds corresponding image files
-3. Sends images to gateway service for processing
+2. Finds corresponding media files (images or videos)
+3. Sends media to gateway service for processing
 4. Tracks success/failure rates
 """
 
+import argparse
 import json
 import os
 import sys
@@ -23,6 +24,7 @@ USER_UUID = "mock-user"
 DATA_DIR = Path(__file__).parent.parent / "data"
 MEDIA_JSON = DATA_DIR / "media.json"
 IMAGES_DIR = DATA_DIR / "images"
+VIDEOS_DIR = DATA_DIR / "videos"
 
 # Statistics
 stats = {
@@ -50,30 +52,40 @@ def load_media_metadata() -> Dict:
     return media_data
 
 
-def find_image_file(media_id: str, file_format: str) -> Path:
-    """Find the image file for a given media ID."""
-    # Images are organized in subdirectories
+def find_media_file(media_id: str, file_format: str, media_type: str) -> Path:
+    """Find the media file for a given media ID."""
+    # Media files are organized in subdirectories
     # Search recursively for the file
     pattern = f"{media_id}.{file_format}"
 
-    for img_path in IMAGES_DIR.rglob(pattern):
-        return img_path
+    search_dir = IMAGES_DIR if media_type == "image" else VIDEOS_DIR
+
+    for file_path in search_dir.rglob(pattern):
+        return file_path
 
     return None
 
 
-def process_image(media_id: str, metadata: Dict, image_path: Path) -> Tuple[bool, str]:
+def process_media(media_id: str, metadata: Dict, media_path: Path, media_type: str) -> Tuple[bool, str]:
     """
-    Send image to gateway for processing.
+    Send media (image or video) to gateway for processing.
 
     Returns:
         Tuple of (success: bool, message: str)
     """
     try:
         # Prepare form data
-        with open(image_path, 'rb') as f:
+        with open(media_path, 'rb') as f:
+            # Determine content type and endpoint
+            if media_type == "image":
+                content_type = f'image/{metadata["fileFormat"]}'
+                endpoint = f"{GATEWAY_URL}/process/image"
+            else:  # video
+                content_type = f'video/{metadata["fileFormat"]}'
+                endpoint = f"{GATEWAY_URL}/process/video"
+
             files = {
-                'file': (image_path.name, f, f'image/{metadata["fileFormat"]}')
+                'file': (media_path.name, f, content_type)
             }
 
             data = {
@@ -86,7 +98,7 @@ def process_image(media_id: str, metadata: Dict, image_path: Path) -> Tuple[bool
             # Send to gateway
             print(f"  → Sending to gateway...", end='', flush=True)
             response = requests.post(
-                f"{GATEWAY_URL}/process/image",
+                endpoint,
                 files=files,
                 data=data,
                 timeout=300  # 5 minutes timeout
@@ -153,14 +165,72 @@ def print_statistics():
     print("=" * 60)
 
 
+def parse_arguments():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Populate Milvus vector database with mock media data",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Process only images (default)
+  python populate_vector_db.py
+
+  # Process only videos
+  python populate_vector_db.py --videos-only
+
+  # Process both images and videos
+  python populate_vector_db.py --all
+
+  # Process specific media types
+  python populate_vector_db.py --media-type video
+        """
+    )
+
+    parser.add_argument(
+        '--videos-only',
+        action='store_true',
+        help='Process only video files'
+    )
+    parser.add_argument(
+        '--images-only',
+        action='store_true',
+        help='Process only image files (default)'
+    )
+    parser.add_argument(
+        '--all',
+        action='store_true',
+        help='Process both images and videos'
+    )
+    parser.add_argument(
+        '--media-type',
+        choices=['image', 'video'],
+        help='Specify media type to process (alternative to --videos-only/--images-only)'
+    )
+
+    return parser.parse_args()
+
+
 def main():
     """Main execution function."""
+    # Parse arguments
+    args = parse_arguments()
+
+    # Determine which media types to process
+    if args.all:
+        media_types = ['image', 'video']
+    elif args.videos_only or args.media_type == 'video':
+        media_types = ['video']
+    else:
+        # Default: images only
+        media_types = ['image']
+
     print("=" * 60)
     print("VECTOR DATABASE POPULATION SCRIPT")
     print("=" * 60)
     print(f"Gateway URL: {GATEWAY_URL}")
     print(f"User UUID:   {USER_UUID}")
     print(f"Data Dir:    {DATA_DIR}")
+    print(f"Media Types: {', '.join(media_types)}")
     print("=" * 60)
     print()
 
@@ -175,15 +245,19 @@ def main():
     # Load metadata
     media_data = load_media_metadata()
 
-    # Filter for images only
-    images = {k: v for k, v in media_data.items() if v.get('mediaType') == 'image'}
-    stats['total'] = len(images)
+    # Filter for selected media types
+    media_items = {
+        k: v for k, v in media_data.items()
+        if v.get('mediaType') in media_types
+    }
+    stats['total'] = len(media_items)
 
-    print(f"\nFound {len(images)} images to process")
+    media_type_str = "media files" if len(media_types) > 1 else f"{media_types[0]}s"
+    print(f"\nFound {len(media_items)} {media_type_str} to process")
     print("=" * 60)
 
     # Ask for confirmation
-    response = input(f"\nProcess {len(images)} images? [y/N]: ")
+    response = input(f"\nProcess {len(media_items)} {media_type_str}? [y/N]: ")
     if response.lower() != 'y':
         print("Aborted.")
         sys.exit(0)
@@ -191,22 +265,25 @@ def main():
     print("\nStarting processing...\n")
     stats['start_time'] = time.time()
 
-    # Process each image
-    for idx, (media_id, metadata) in enumerate(images.items(), 1):
-        print(f"[{idx}/{len(images)}] {media_id[:8]}... ({metadata.get('location', 'N/A')})")
+    # Process each media item
+    for idx, (media_id, metadata) in enumerate(media_items.items(), 1):
+        media_type = metadata['mediaType']
+        type_icon = "🖼️ " if media_type == "image" else "🎥"
 
-        # Find image file
-        image_path = find_image_file(media_id, metadata['fileFormat'])
+        print(f"[{idx}/{len(media_items)}] {type_icon} {media_id[:8]}... ({metadata.get('location', 'N/A')})")
 
-        if not image_path:
-            print(f"  ⚠ Image file not found, skipping")
+        # Find media file
+        media_path = find_media_file(media_id, metadata['fileFormat'], media_type)
+
+        if not media_path:
+            print(f"  ⚠ {media_type.capitalize()} file not found, skipping")
             stats['skipped'] += 1
             continue
 
-        print(f"  📁 {image_path.relative_to(DATA_DIR)}")
+        print(f"  📁 {media_path.relative_to(DATA_DIR)}")
 
-        # Process the image
-        success, message = process_image(media_id, metadata, image_path)
+        # Process the media
+        success, message = process_media(media_id, metadata, media_path, media_type)
 
         if success:
             stats['processed'] += 1
@@ -227,7 +304,7 @@ def main():
         print(f"\n⚠ Completed with {stats['failed']} failures")
         sys.exit(1)
     else:
-        print(f"\n✓ All images processed successfully!")
+        print(f"\n✓ All {media_type_str} processed successfully!")
         sys.exit(0)
 
 

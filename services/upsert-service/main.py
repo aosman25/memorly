@@ -58,12 +58,14 @@ class MemoryData(BaseModel):
     modality: str
     content: str
     embedding: List[float] = Field(..., min_length=512, max_length=512)
-    timestamp: str
+    timestamp: int = Field(..., description="Unix timestamp (seconds since epoch)")
     location: str
     people: List[str] = Field(default_factory=list)
     objects: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     source_path: str
+    start_timestamp_video: Optional[float] = Field(None, description="Start timestamp in seconds (video only)")
+    end_timestamp_video: Optional[float] = Field(None, description="End timestamp in seconds (video only)")
 
     class Config:
         json_schema_extra = {
@@ -72,12 +74,14 @@ class MemoryData(BaseModel):
                 "modality": "video",
                 "content": "Ali and Sarah discussing AI ethics at a café in Istanbul.",
                 "embedding": [0.012, -0.045] + [0.0] * 510,
-                "timestamp": "2025-08-20T18:42:10Z",
+                "timestamp": 1724174530,
                 "location": "Istanbul, Turkey",
                 "people": ["Ali", "Sarah"],
                 "objects": ["table", "coffee", "notebook"],
                 "tags": ["conversation", "AI", "cafe", "travel"],
-                "source_path": "/data/videos/2025-08-20_cafe.mp4"
+                "source_path": "/data/videos/2025-08-20_cafe.mp4",
+                "start_timestamp_video": 0.0,
+                "end_timestamp_video": 5.2
             }
         }
 

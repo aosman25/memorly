@@ -22,8 +22,7 @@
   },
   {
     "field_name": "timestamp",
-    "datatype": "VARCHAR",
-    "max_length": 50
+    "datatype": "INT64"
   },
   {
     "field_name": "location",
@@ -55,5 +54,13 @@
     "field_name": "source_path",
     "datatype": "VARCHAR",
     "max_length": 500
+  },
+  {
+    "field_name": "start_timestamp_video",
+    "datatype": "FLOAT"
+  },
+  {
+    "field_name": "end_timestamp_video",
+    "datatype": "FLOAT"
   }
 ]

@@ -219,13 +219,13 @@ async def process_extraction_request(
                 logger.info(f"Processing image {i}/{len(request.images)}")
 
                 # Load image
-                if image_input.image_url:
+                if image_input.url:
                     image = await asyncio.to_thread(
-                        load_image_from_url, image_input.image_url
+                        load_image_from_url, image_input.url
                     )
-                elif image_input.image_base64:
+                elif image_input.base64:
                     image = await asyncio.to_thread(
-                        load_image_from_base64, image_input.image_base64
+                        load_image_from_base64, image_input.base64
                     )
                 else:
                     logger.warning(f"Skipping image {i}: no source provided")
@@ -235,7 +235,7 @@ async def process_extraction_request(
                 faces = await asyncio.to_thread(
                     process_image_for_faces,
                     image,
-                    request.min_face_size,
+                    Config.MIN_FACE_SIZE,
                     Config.FACE_MODEL,
                     Config.DETECTOR_BACKEND
                 )
@@ -266,17 +266,17 @@ async def process_extraction_request(
 
         # Convert to response format
         faces = []
-        for face_image, embedding, confidence, face_id in unique_faces_data:
+        for face_image, embedding, confidence, facial_area in unique_faces_data:
             # Convert face image to base64
-            headshot_base64 = await asyncio.to_thread(
+            face_image_base64 = await asyncio.to_thread(
                 face_image_to_base64, face_image
             )
 
             faces.append(Face(
+                face_image=face_image_base64,
                 embedding=embedding.tolist(),
-                headshot_base64=headshot_base64,
                 confidence=confidence,
-                face_id=face_id
+                facial_area=facial_area
             ))
 
         processing_time_ms = (time.time() - start_time) * 1000

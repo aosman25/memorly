@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.INFO)
 DATATYPE_MAP = {
     "VARCHAR": DataType.VARCHAR,
     "INT32": DataType.INT32,
+    "INT64": DataType.INT64,
     "FLOAT": DataType.FLOAT,
     "JSON": DataType.JSON,
     "ARRAY": DataType.ARRAY,

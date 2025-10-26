@@ -21,7 +21,7 @@ class MediaPipeline:
         media_id: str,
         media_path: str,
         is_video: bool = False
-    ) -> Tuple[int, int]:
+    ) -> Tuple[int, int, List[str]]:
         """
         Process faces from media and update persons in MongoDB.
 
@@ -32,10 +32,11 @@ class MediaPipeline:
             is_video: Whether media is a video
 
         Returns:
-            Tuple of (persons_created, persons_updated)
+            Tuple of (persons_created, persons_updated, person_ids)
         """
         persons_created = 0
         persons_updated = 0
+        person_ids = []
 
         try:
             # Extract faces
@@ -43,7 +44,7 @@ class MediaPipeline:
 
             if not faces:
                 logger.info(f"No faces found in media: {media_id}")
-                return persons_created, persons_updated
+                return persons_created, persons_updated, person_ids
 
             # Process each face
             for face in faces:
@@ -67,6 +68,7 @@ class MediaPipeline:
                         media_id=media_id
                     )
                     persons_updated += 1
+                    person_ids.append(matching_person_id)
                 else:
                     # Create new person
                     new_person_id = str(uuid.uuid4())
@@ -77,6 +79,7 @@ class MediaPipeline:
                         media_id=media_id
                     )
                     persons_created += 1
+                    person_ids.append(new_person_id)
 
             logger.info(f"Face processing complete: {persons_created} created, {persons_updated} updated")
 
@@ -84,7 +87,7 @@ class MediaPipeline:
             logger.error(f"Error processing faces: {e}", exc_info=True)
             raise
 
-        return persons_created, persons_updated
+        return persons_created, persons_updated, person_ids
 
     async def process_image(
         self,
@@ -123,7 +126,7 @@ class MediaPipeline:
             tags = features.get("tags", [])
 
             # Step 2: Process faces
-            persons_created, persons_updated = await self.process_faces(
+            persons_created, persons_updated, person_ids = await self.process_faces(
                 user_id=user_id,
                 media_id=media_id,
                 media_path=media_path,
@@ -139,10 +142,12 @@ class MediaPipeline:
                 media_id=media_id,
                 embedding=embedding,
                 timestamp=timestamp,
+                modality="image",
                 objects=objects,
                 content=content,
                 tags=tags,
-                location=location
+                location=location,
+                people=person_ids
             )
 
             logger.info(f"Image pipeline completed successfully for media: {media_id}")
@@ -230,7 +235,7 @@ class MediaPipeline:
             tags = features.get("tags", [])
 
             # Step 3: Process faces from video
-            persons_created, persons_updated = await self.process_faces(
+            persons_created, persons_updated, person_ids = await self.process_faces(
                 user_id=user_id,
                 media_id=media_id,
                 media_path=media_path,
@@ -249,10 +254,12 @@ class MediaPipeline:
                 media_id=media_id,
                 embedding=embedding,
                 timestamp=timestamp,
+                modality="video",
                 objects=objects,
                 content=content,
                 tags=tags,
                 location=location,
+                people=person_ids,
                 start_timestamp_video=start_timestamp,
                 end_timestamp_video=end_timestamp
             )
@@ -317,10 +324,12 @@ class MediaPipeline:
                 media_id=media_id,
                 embedding=embedding,
                 timestamp=timestamp,
+                modality="text",
                 objects=[],
                 content=text_content,
                 tags=[],
-                location=location
+                location=location,
+                people=[]
             )
 
             logger.info(f"Text pipeline completed successfully for media: {media_id}")

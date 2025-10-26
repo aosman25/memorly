@@ -33,13 +33,15 @@ class ServiceClients:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
                 f"{Config.EXTRACT_FEATURES_SERVICE_URL}/extract",
-                json={"image": image_base64}
+                json={"image_base64": image_base64}
             )
             response.raise_for_status()
             result = response.json()
 
-        logger.info(f"Features extracted: {len(result.get('objects', []))} objects, {len(result.get('tags', []))} tags")
-        return result
+        # Extract features from the nested response structure
+        features = result.get('features', {})
+        logger.info(f"Features extracted: {len(features.get('objects', []))} objects, {len(features.get('tags', []))} tags")
+        return features
 
     async def extract_faces(self, media_path: str, is_video: bool = False) -> List[Dict]:
         """
@@ -63,7 +65,7 @@ class ServiceClients:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
                     f"{Config.FACE_EXTRACTION_SERVICE_URL}/extract-faces",
-                    json={"images": [image_base64]}
+                    json={"images": [{"base64": image_base64}]}
                 )
                 response.raise_for_status()
                 result = response.json()
@@ -78,8 +80,8 @@ class ServiceClients:
 
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
-                    f"{Config.FACE_EXTRACTION_SERVICE_URL}/extract-faces-from-video",
-                    json={"video": video_base64}
+                    f"{Config.FACE_EXTRACTION_SERVICE_URL}/extract-faces",
+                    json={"images": [{"base64": video_base64}]}
                 )
                 response.raise_for_status()
                 result = response.json()
@@ -136,7 +138,7 @@ class ServiceClients:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
                 f"{Config.EMBED_SERVICE_URL}/embed/image",
-                json={"image": image_base64}
+                json={"image_base64": image_base64}
             )
             response.raise_for_status()
             result = response.json()
@@ -185,8 +187,8 @@ class ServiceClients:
         frames = []
         for scene in scenes:
             frames.append({
-                "frame": scene.get("frame"),  # base64 encoded frame
-                "text": scene.get("transcript", "")
+                "frame_base64": scene.get("frame"),  # base64 encoded frame
+                "transcript": scene.get("transcript", "")
             })
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -211,10 +213,12 @@ class ServiceClients:
         media_id: str,
         embedding: List[float],
         timestamp: int,
+        modality: str = "image",
         objects: Optional[List[str]] = None,
         content: Optional[str] = None,
         tags: Optional[List[str]] = None,
         location: Optional[str] = None,
+        people: Optional[List[str]] = None,
         start_timestamp_video: Optional[float] = None,
         end_timestamp_video: Optional[float] = None
     ) -> Dict:
@@ -226,10 +230,12 @@ class ServiceClients:
             media_id: Media ID
             embedding: Embedding vector
             timestamp: Unix timestamp
+            modality: Type of media (image/video/text)
             objects: List of objects in the media
             content: Descriptive content
             tags: List of tags
             location: Location string
+            people: List of people in the media
             start_timestamp_video: Start timestamp for video (optional)
             end_timestamp_video: End timestamp for video (optional)
 
@@ -238,24 +244,28 @@ class ServiceClients:
         """
         logger.info(f"Upserting to vector DB: user={user_id}, media={media_id}")
 
-        payload = {
-            "user_id": user_id,
-            "memory_data": {
-                "id": media_id,
-                "timestamp": timestamp,
-                "objects": objects or [],
-                "content": content or "",
-                "tags": tags or [],
-                "location": location or "",
-                "embedding": embedding
-            }
+        memory_data = {
+            "id": media_id,
+            "modality": modality,
+            "content": content or "",
+            "embedding": embedding,
+            "timestamp": timestamp,
+            "location": location or "",
+            "people": people or [],
+            "objects": objects or [],
+            "tags": tags or []
         }
 
         # Add video timestamps if provided
         if start_timestamp_video is not None:
-            payload["memory_data"]["start_timestamp_video"] = start_timestamp_video
+            memory_data["start_timestamp_video"] = start_timestamp_video
         if end_timestamp_video is not None:
-            payload["memory_data"]["end_timestamp_video"] = end_timestamp_video
+            memory_data["end_timestamp_video"] = end_timestamp_video
+
+        payload = {
+            "user_id": user_id,
+            "memories": [memory_data]  # Changed to plural and wrapped in list
+        }
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(

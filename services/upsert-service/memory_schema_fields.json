@@ -51,11 +51,6 @@
     "max_length": 100
   },
   {
-    "field_name": "source_path",
-    "datatype": "VARCHAR",
-    "max_length": 500
-  },
-  {
     "field_name": "start_timestamp_video",
     "datatype": "FLOAT"
   },

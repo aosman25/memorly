@@ -40,20 +40,36 @@ def decode_base64_image(base64_str: str) -> Image.Image:
         raise ValueError(f"Failed to decode base64 image: {str(e)}")
 
 
-def image_to_base64_for_api(image: Image.Image) -> str:
+def image_to_base64_for_api(image: Image.Image, max_size: int = 512) -> str:
     """
     Convert PIL Image to base64 string for API submission.
+    Resizes image to fit within max_size while maintaining aspect ratio.
 
     Args:
         image: PIL Image object
+        max_size: Maximum dimension (width or height) for the resized image
 
     Returns:
         Base64 encoded string suitable for API
     """
     try:
+        # Resize image to reduce size for API
+        # Calculate new size maintaining aspect ratio
+        width, height = image.size
+        if width > max_size or height > max_size:
+            if width > height:
+                new_width = max_size
+                new_height = int((max_size / width) * height)
+            else:
+                new_height = max_size
+                new_width = int((max_size / height) * width)
+
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            logger.debug(f"Resized image from {width}x{height} to {new_width}x{new_height}")
+
         # Convert image to bytes
         buffer = io.BytesIO()
-        image.save(buffer, format='PNG')
+        image.save(buffer, format='PNG', optimize=True)
         image_bytes = buffer.getvalue()
 
         # Encode to base64
@@ -83,10 +99,11 @@ def embed_image(
         512-dimensional embedding as numpy array
     """
     try:
-        # The OpenAI embeddings API expects the base64 string directly
-        # Make sure it has the data URI prefix
-        if not image_base64.startswith('data:'):
-            image_base64 = f"data:image/png;base64,{image_base64}"
+        # Decode the base64 image
+        image = decode_base64_image(image_base64)
+
+        # Resize and re-encode to reduce size (256x256 to fit API limits)
+        image_base64 = image_to_base64_for_api(image, max_size=256)
 
         embeddings = client.embeddings.create(
             model=model,

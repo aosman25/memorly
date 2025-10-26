@@ -65,7 +65,6 @@ class MemoryData(BaseModel):
     people: List[str] = Field(default_factory=list)
     objects: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
-    source_path: str
     start_timestamp_video: Optional[float] = Field(None, description="Start timestamp in seconds (video only)")
     end_timestamp_video: Optional[float] = Field(None, description="End timestamp in seconds (video only)")
 
@@ -81,7 +80,6 @@ class MemoryData(BaseModel):
                 "people": ["Ali", "Ahmed"],
                 "objects": ["table", "coffee", "notebook"],
                 "tags": ["conversation", "AI", "cafe", "travel"],
-                "source_path": "/data/videos/2025-08-20_cafe.mp4",
                 "start_timestamp_video": 0.0,
                 "end_timestamp_video": 5.2
             }
@@ -114,7 +112,9 @@ def ensure_user_collection(user_id: str) -> tuple[str, bool]:
     Returns:
         Tuple of (collection_name, collection_existed)
     """
-    collection_name = user_id
+    # Sanitize user_id to create valid Milvus collection name
+    # Milvus only allows letters, numbers, and underscores
+    collection_name = user_id.replace("-", "_")
     collection_existed = False
 
     # Check if collection already exists
@@ -161,6 +161,14 @@ async def upsert_memories(request: UpsertRequest):
 
         # Convert Pydantic models to dictionaries for Milvus
         memory_dicts = [memory.model_dump() for memory in request.memories]
+
+        # Handle None values for optional float fields
+        # Milvus doesn't accept None for FLOAT fields, convert to 0.0
+        for memory in memory_dicts:
+            if memory.get('start_timestamp_video') is None:
+                memory['start_timestamp_video'] = 0.0
+            if memory.get('end_timestamp_video') is None:
+                memory['end_timestamp_video'] = 0.0
 
         # Upsert data into the collection
         client.upsert(
@@ -209,7 +217,7 @@ async def list_collections():
 async def get_collection_info(user_id: str):
     """Get information about a specific user's collection."""
     try:
-        collection_name = user_id
+        collection_name = user_id.replace("-", "_")
         collections = client.list_collections()
 
         if collection_name not in collections:
@@ -241,7 +249,7 @@ async def get_collection_info(user_id: str):
 async def delete_user_collection(user_id: str):
     """Delete a user's collection."""
     try:
-        collection_name = user_id
+        collection_name = user_id.replace("-", "_")
         collections = client.list_collections()
 
         if collection_name not in collections:

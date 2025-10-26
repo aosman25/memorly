@@ -217,18 +217,18 @@ def cosine_similarity(embedding1: np.ndarray, embedding2: np.ndarray) -> float:
 
 
 def deduplicate_faces(
-    faces: List[Tuple[np.ndarray, np.ndarray, float]],
+    faces: List[Tuple[np.ndarray, np.ndarray, float, dict]],
     similarity_threshold: float = 0.4
-) -> List[Tuple[np.ndarray, np.ndarray, float, str]]:
+) -> List[Tuple[np.ndarray, np.ndarray, float, dict]]:
     """
     Remove duplicate faces based on embedding similarity.
 
     Args:
-        faces: List of (face_image, embedding, confidence) tuples
+        faces: List of (face_image, embedding, confidence, facial_area) tuples
         similarity_threshold: Threshold for considering faces as duplicates
 
     Returns:
-        List of unique faces: (face_image, embedding, confidence, face_id)
+        List of unique faces: (face_image, embedding, confidence, facial_area)
     """
     if not faces:
         return []
@@ -236,7 +236,7 @@ def deduplicate_faces(
     unique_faces = []
     processed_embeddings = []
 
-    for face_image, embedding, confidence in faces:
+    for face_image, embedding, confidence, facial_area in faces:
         is_duplicate = False
 
         # Compare with all previously seen faces
@@ -249,8 +249,7 @@ def deduplicate_faces(
                 break
 
         if not is_duplicate:
-            face_id = str(uuid.uuid4())
-            unique_faces.append((face_image, embedding, confidence, face_id))
+            unique_faces.append((face_image, embedding, confidence, facial_area))
             processed_embeddings.append(embedding)
 
     logger.info(
@@ -302,7 +301,7 @@ def process_image_for_faces(
     min_face_size: int = 20,
     model_name: str = "ArcFace",
     detector_backend: str = "retinaface"
-) -> List[Tuple[np.ndarray, np.ndarray, float]]:
+) -> List[Tuple[np.ndarray, np.ndarray, float, dict]]:
     """
     Process a single image to detect faces and generate embeddings.
 
@@ -313,7 +312,7 @@ def process_image_for_faces(
         detector_backend: Face detector to use
 
     Returns:
-        List of (face_image, embedding, confidence) tuples
+        List of (face_image, embedding, confidence, facial_area) tuples
     """
     faces_with_embeddings = []
 
@@ -324,7 +323,7 @@ def process_image_for_faces(
     for face_image, facial_area, confidence in detected_faces:
         try:
             embedding = generate_face_embedding(face_image, model_name)
-            faces_with_embeddings.append((face_image, embedding, confidence))
+            faces_with_embeddings.append((face_image, embedding, confidence, facial_area))
         except Exception as e:
             logger.warning("Failed to generate embedding for face", error=str(e))
             continue

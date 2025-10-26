@@ -1,0 +1,59 @@
+[
+  {
+    "field_name": "id",
+    "datatype": "VARCHAR",
+    "is_primary": true,
+    "max_length": 100
+  },
+  {
+    "field_name": "modality",
+    "datatype": "VARCHAR",
+    "max_length": 50
+  },
+  {
+    "field_name": "content",
+    "datatype": "VARCHAR",
+    "max_length": 65535
+  },
+  {
+    "field_name": "embedding",
+    "datatype": "FLOAT_VECTOR",
+    "dim": 512
+  },
+  {
+    "field_name": "timestamp",
+    "datatype": "VARCHAR",
+    "max_length": 50
+  },
+  {
+    "field_name": "location",
+    "datatype": "VARCHAR",
+    "max_length": 200
+  },
+  {
+    "field_name": "people",
+    "datatype": "ARRAY",
+    "element_type": "VARCHAR",
+    "max_capacity": 50,
+    "max_length": 100
+  },
+  {
+    "field_name": "objects",
+    "datatype": "ARRAY",
+    "element_type": "VARCHAR",
+    "max_capacity": 100,
+    "max_length": 100
+  },
+  {
+    "field_name": "tags",
+    "datatype": "ARRAY",
+    "element_type": "VARCHAR",
+    "max_capacity": 50,
+    "max_length": 100
+  },
+  {
+    "field_name": "source_path",
+    "datatype": "VARCHAR",
+    "max_length": 500
+  }
+]

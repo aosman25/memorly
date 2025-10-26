@@ -1,0 +1,32 @@
+[
+  {
+    "field_name": "id",
+    "index_type": "INVERTED"
+  },
+  {
+    "field_name": "modality",
+    "index_type": "INVERTED"
+  },
+  {
+    "field_name": "timestamp",
+    "index_type": "INVERTED"
+  },
+  {
+    "field_name": "location",
+    "index_type": "INVERTED"
+  },
+  {
+    "field_name": "source_path",
+    "index_type": "INVERTED"
+  },
+  {
+    "field_name": "content",
+    "index_type": "Trie"
+  },
+  {
+    "field_name": "embedding",
+    "index_name": "embedding_index",
+    "index_type": "AUTOINDEX",
+    "metric_type": "COSINE"
+  }
+]

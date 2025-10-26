@@ -11,7 +11,7 @@ class ServiceClients:
     """Client for communicating with all microservices."""
 
     def __init__(self):
-        self.timeout = httpx.Timeout(300.0, connect=60.0)  # 5 min timeout for processing
+        self.timeout = httpx.Timeout(600.0, connect=60.0)  # 10 min timeout for processing
 
     async def extract_features(self, image_path: str) -> Dict:
         """
@@ -29,6 +29,31 @@ class ServiceClients:
         with open(image_path, "rb") as f:
             image_data = f.read()
         image_base64 = base64.b64encode(image_data).decode("utf-8")
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{Config.EXTRACT_FEATURES_SERVICE_URL}/extract",
+                json={"image_base64": image_base64}
+            )
+            response.raise_for_status()
+            result = response.json()
+
+        # Extract features from the nested response structure
+        features = result.get('features', {})
+        logger.info(f"Features extracted: {len(features.get('objects', []))} objects, {len(features.get('tags', []))} tags")
+        return features
+
+    async def extract_features_from_base64(self, image_base64: str) -> Dict:
+        """
+        Call extract-features-service with a base64 encoded image.
+
+        Args:
+            image_base64: Base64 encoded image data
+
+        Returns:
+            Dictionary with objects, tags, and content
+        """
+        logger.info("Extracting features from base64 image")
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
@@ -72,21 +97,11 @@ class ServiceClients:
 
             faces = result.get("faces", [])
         else:
-            # For videos, pass the path directly (service will handle frame extraction)
-            # This assumes the face extraction service accepts video paths
-            with open(media_path, "rb") as f:
-                video_data = f.read()
-            video_base64 = base64.b64encode(video_data).decode("utf-8")
-
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{Config.FACE_EXTRACTION_SERVICE_URL}/extract-faces",
-                    json={"images": [{"base64": video_base64}]}
-                )
-                response.raise_for_status()
-                result = response.json()
-
-            faces = result.get("faces", [])
+            # For videos, we need frames - but we don't have them here
+            # This will be handled differently - pass empty list for now
+            # Face detection for videos should be done using scene frames
+            logger.warning("Video face extraction requires scene frames - returning empty list")
+            faces = []
 
         logger.info(f"Extracted {len(faces)} unique faces")
         return faces
@@ -110,7 +125,7 @@ class ServiceClients:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(
                 f"{Config.VIDEO_SEGMENTATION_SERVICE_URL}/segment",
-                json={"video": video_base64}
+                json={"video_base64": video_base64}
             )
             response.raise_for_status()
             result = response.json()
@@ -187,7 +202,7 @@ class ServiceClients:
         frames = []
         for scene in scenes:
             frames.append({
-                "frame_base64": scene.get("frame"),  # base64 encoded frame
+                "frame_base64": scene.get("frame_base64"),  # base64 encoded frame
                 "transcript": scene.get("transcript", "")
             })
 

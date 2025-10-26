@@ -84,7 +84,7 @@ def get_video_duration(video_path: str) -> float:
         raise RuntimeError(f"Failed to get video duration: {str(e)}")
 
 
-def detect_scenes(video_path: str, threshold: float = 0.3) -> List[Tuple[float, float]]:
+def detect_scenes(video_path: str, threshold: float = 0.15) -> List[Tuple[float, float]]:
     """
     Detect scene changes using ffmpeg scene detection.
 
@@ -110,9 +110,9 @@ def detect_scenes(video_path: str, threshold: float = 0.3) -> List[Tuple[float, 
 
         result = subprocess.run(
             cmd,
-            capture_output=True,
-            text=True,
-            stderr=subprocess.STDOUT
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True
         )
 
         # Parse scene change timestamps from ffmpeg output
@@ -216,7 +216,11 @@ def extract_audio_segment(video_path: str, start_time: float, end_time: float, o
         ]
 
         subprocess.run(cmd, capture_output=True, check=True)
-        logger.debug("Extracted audio segment", start=start_time, end=end_time)
+
+        # Log file size to verify audio was extracted
+        import os
+        file_size = os.path.getsize(output_path)
+        logger.info("Extracted audio segment", start=start_time, end=end_time, duration=end_time-start_time, file_size_bytes=file_size)
     except Exception as e:
         raise RuntimeError(f"Failed to extract audio segment: {str(e)}")
 
@@ -241,6 +245,11 @@ def transcribe_audio(
     """
     try:
         from openai import OpenAI
+        import os
+
+        # Log file size before sending
+        file_size = os.path.getsize(audio_path)
+        logger.info("Preparing to transcribe audio", file_path=audio_path, file_size_bytes=file_size)
 
         client = OpenAI(
             api_key=api_key,
@@ -249,8 +258,9 @@ def transcribe_audio(
 
         with open(audio_path, 'rb') as audio_file:
             params = {
-                "model": "whisper-1",
+                "model": "mistralai/Voxtral-Small-24B-2507",  # DeepInfra Voxtral model - better transcription
                 "file": audio_file,
+                "response_format": "text",  # Get plain text response
             }
 
             if language:
@@ -258,8 +268,15 @@ def transcribe_audio(
 
             transcript = client.audio.transcriptions.create(**params)
 
-        text = transcript.text if hasattr(transcript, 'text') else str(transcript)
-        logger.debug("Transcribed audio", text_length=len(text))
+        # Handle response - it might be a string if response_format is "text"
+        if isinstance(transcript, str):
+            text = transcript
+        elif hasattr(transcript, 'text'):
+            text = transcript.text
+        else:
+            text = str(transcript)
+
+        logger.info("Transcribed audio successfully", text_length=len(text), text_preview=text[:100] if text else "")
         return text
 
     except Exception as e:

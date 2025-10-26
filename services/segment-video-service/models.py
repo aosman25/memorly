@@ -15,7 +15,7 @@ class SegmentationRequest(BaseModel):
     """Request model for video segmentation"""
     video_url: Optional[str] = Field(None, description="URL of the video to process")
     video_base64: Optional[str] = Field(None, description="Base64 encoded video data")
-    scene_threshold: float = Field(0.3, description="Scene detection threshold (0-1). Lower = more sensitive", ge=0.0, le=1.0)
+    scene_threshold: float = Field(0.15, description="Scene detection threshold (0-1). Lower = more sensitive", ge=0.0, le=1.0)
     language: Optional[str] = Field(None, description="Language code (ISO-639-1) for audio transcription")
 
     def model_post_init(self, __context):

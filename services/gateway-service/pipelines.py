@@ -1,5 +1,6 @@
 import logging
 import uuid
+import httpx
 from typing import Dict, List, Tuple, Optional
 from service_clients import ServiceClients
 from mongodb_client import MongoDBClient
@@ -218,63 +219,133 @@ class MediaPipeline:
                     "embedding_dimension": None
                 }
 
-            # Step 2: Extract features and content from scenes
-            # Combine transcripts from all scenes to create content
-            transcripts = []
+            # Step 2: Extract faces from scene frames
+            # Collect all scene frames for face detection
+            scene_frames = []
             for scene in scenes:
+                frame_base64 = scene.get("frame_base64")
+                if frame_base64:
+                    scene_frames.append({"base64": frame_base64})
+
+            # Extract faces from all frames
+            all_faces = []
+            if scene_frames:
+                async with httpx.AsyncClient(timeout=self.service_clients.timeout) as client:
+                    response = await client.post(
+                        f"{Config.FACE_EXTRACTION_SERVICE_URL}/extract-faces",
+                        json={"images": scene_frames}
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    all_faces = result.get("faces", [])
+
+            # Process faces and match to persons in database
+            persons_created = 0
+            persons_updated = 0
+            person_ids = []
+
+            for face in all_faces:
+                face_embedding = face.get("embedding")
+                if not face_embedding:
+                    continue
+
+                # Try to match face to existing person (returns person_id string or None)
+                matched_person_id = self.mongo_client.find_matching_person(
+                    user_id=user_id,
+                    face_embedding=face_embedding
+                )
+
+                if matched_person_id:
+                    # Update existing person
+                    self.mongo_client.add_media_to_person(
+                        user_id=user_id,
+                        person_id=matched_person_id,
+                        media_id=media_id
+                    )
+                    person_ids.append(matched_person_id)
+                    persons_updated += 1
+                    logger.info(f"Matched face to existing person: {matched_person_id}")
+                else:
+                    # Create new person
+                    new_person_id = str(uuid.uuid4())
+                    self.mongo_client.create_person(
+                        user_id=user_id,
+                        person_id=new_person_id,
+                        face_embedding=face_embedding,
+                        media_id=media_id
+                    )
+                    person_ids.append(new_person_id)
+                    persons_created += 1
+                    logger.info(f"Created new person: {new_person_id}")
+
+            logger.info(f"Face processing complete: {persons_created} created, {persons_updated} updated")
+
+            # Step 3: Process each scene separately
+            scenes_processed = 0
+            for idx, scene in enumerate(scenes, 1):
+                # Generate unique ID for this scene
+                scene_id = f"{media_id}_scene_{idx}"
+
+                # Get scene timestamps
+                start_timestamp_video = scene.get("start_timestamp", 0.0)
+                end_timestamp_video = scene.get("end_timestamp", 0.0)
+
+                # Get transcript
                 transcript = scene.get("transcript", "")
+
+                # Extract features from scene frame
+                frame_base64 = scene.get("frame_base64")
+                if frame_base64:
+                    features = await self.service_clients.extract_features_from_base64(frame_base64)
+                    objects = features.get("objects", [])
+                    tags = features.get("tags", [])
+                    description = features.get("content", "")
+                else:
+                    logger.warning(f"No frame available in scene {idx}, skipping feature extraction")
+                    objects = []
+                    tags = []
+                    description = ""
+
+                # Build content with description and transcript
+                content_parts = []
+                if description:
+                    content_parts.append(f"[Description]\n{description}")
                 if transcript:
-                    transcripts.append(transcript)
+                    content_parts.append(f"[Transcript]\n{transcript}")
+                content = "\n\n".join(content_parts) if content_parts else ""
 
-            # Join all transcripts as the video content
-            content = " ".join(transcripts) if transcripts else ""
+                # Generate embedding for this scene
+                embedding = await self.service_clients.embed_video([scene])
 
-            # Extract features from first scene frame for objects and tags
-            first_scene = scenes[0]
-            features = await self.service_clients.extract_features(media_path)
-            objects = features.get("objects", [])
-            tags = features.get("tags", [])
+                # Upsert this scene to vector database
+                await self.service_clients.upsert_to_vector_db(
+                    user_id=user_id,
+                    media_id=scene_id,  # Unique ID for this scene
+                    embedding=embedding,
+                    timestamp=timestamp,
+                    modality="video",
+                    source_path=media_id,  # Original video ID
+                    objects=objects,
+                    content=content,
+                    tags=tags,
+                    location=location,
+                    people=person_ids,
+                    start_timestamp_video=start_timestamp_video,
+                    end_timestamp_video=end_timestamp_video
+                )
 
-            # Step 3: Process faces from video
-            persons_created, persons_updated, person_ids = await self.process_faces(
-                user_id=user_id,
-                media_id=media_id,
-                media_path=media_path,
-                is_video=True
-            )
-
-            # Step 4: Generate fused embedding
-            embedding = await self.service_clients.embed_video(scenes)
-
-            # Step 5: Upsert to vector database with video timestamps
-            start_timestamp = scenes[0].get("start_time", 0.0)
-            end_timestamp = scenes[-1].get("end_time", 0.0)
-
-            await self.service_clients.upsert_to_vector_db(
-                user_id=user_id,
-                media_id=media_id,
-                embedding=embedding,
-                timestamp=timestamp,
-                modality="video",
-                source_path=media_id,  # For videos, source_path equals media_id (original video ID)
-                objects=objects,
-                content=content,
-                tags=tags,
-                location=location,
-                people=person_ids,
-                start_timestamp_video=start_timestamp,
-                end_timestamp_video=end_timestamp
-            )
+                scenes_processed += 1
+                logger.info(f"Processed scene {idx}/{len(scenes)} for video {media_id}")
 
             logger.info(f"Video pipeline completed successfully for media: {media_id}")
 
             return {
                 "success": True,
                 "media_id": media_id,
-                "message": f"Video processed successfully ({len(scenes)} scenes)",
+                "message": f"Video processed successfully ({scenes_processed} scenes)",
                 "persons_created": persons_created,
                 "persons_updated": persons_updated,
-                "embedding_dimension": len(embedding)
+                "embedding_dimension": 512  # All embeddings are 512-dimensional
             }
 
         except Exception as e:

@@ -48,7 +48,7 @@ class Config:
     WHISPER_API_KEY = os.getenv("WHISPER_API_KEY")
     WHISPER_BASE_URL = os.getenv("WHISPER_BASE_URL", "https://api.deepinfra.com/v1/openai")
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
-    REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "300"))  # 5 minutes for video processing
+    REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "600"))  # 10 minutes for video processing
     PORT = int(os.getenv("PORT", "5002"))
     MAX_VIDEO_SIZE_MB = int(os.getenv("MAX_VIDEO_SIZE_MB", "500"))
 
@@ -275,6 +275,12 @@ async def process_video(request: SegmentationRequest, request_id: str) -> Segmen
                 end_time_scene,
                 audio_path
             )
+
+            # Save audio file for debugging (copy to /tmp for user verification)
+            import shutil
+            debug_audio_path = f"/tmp/debug_audio_scene_{i}_{int(time.time())}.mp3"
+            shutil.copy2(audio_path, debug_audio_path)
+            logger.info("Saved audio file for debugging", debug_path=debug_audio_path)
 
             # Transcribe audio
             transcript = await asyncio.to_thread(
